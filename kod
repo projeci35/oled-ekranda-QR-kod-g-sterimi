@@ -1,0 +1,69 @@
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <qrcode.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET LED_BUILTIN
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+const int buttonPin =  2;
+int locationIndex = 0;
+
+bool buttonState = false;
+
+// Google Haritalar'dan alınan linkler
+String locations[] = {
+  "https://maps.app.goo.gl/PPZFWCLW72A3JLeb8", // İzmir konumu için Google Haritalar linki
+  "https://maps.app.goo.gl/SwgGtDBMVo1v16xQA", // İstanbul konumu için Google Haritalar linki
+  "https://maps.app.goo.gl/cSAigYy4bnEXv2746" // Ankara konumu için Google Haritalar linki
+};
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(buttonPin, INPUT_PULLUP);
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 ekranı bulunamadı."));
+    for (;;);
+  }
+  delay(2000);
+  display.clearDisplay();
+  display.display();
+}
+
+void loop() {
+  buttonState = digitalRead(buttonPin);
+
+  if (!buttonState) {
+    display.clearDisplay();
+
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(5)]; // QR kodunun boyutuna göre buffer boyutunu ayarlayın
+
+    String googleMapsLink = locations[locationIndex]; // Dizideki sıradaki konumun Google Haritalar linki
+
+    qrcode_initText(&qrcode, qrcodeData, 5, ECC_LOW, googleMapsLink.c_str()); // Google Haritalar linkini QR koduna dönüştür
+
+    int qrSize = qrcode.size;
+    int xOffset = (SCREEN_WIDTH - qrSize) / 2;
+    int yOffset = (SCREEN_HEIGHT - qrSize) / 2;
+
+    for (uint8_t y = 0; y < qrSize; y++) {
+      for (uint8_t x = 0; x < qrSize; x++) {
+        if (qrcode_getModule(&qrcode, x, y)) {
+          display.drawPixel(x + xOffset, y + yOffset, WHITE);
+        }
+      }
+    }
+    display.display();
+
+    delay(1000);
+
+    locationIndex++; // Sonraki konuma geçmek için indeksi artır
+    if (locationIndex >= sizeof(locations) / sizeof(locations[0])) {
+      locationIndex = 0; // Tüm konumlar tamamlandığında başa dön
+    }
+  }
+}
